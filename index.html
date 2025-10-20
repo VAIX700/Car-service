@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Car Tools — Torque Calculator & Maintenance Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#0b0b0f; 
+      --card:#0f1115; 
+      --muted:#9aa3b2; 
+      --accent:#7c5cff;
+      --glass: rgba(255,255,255,0.03);
+      --text:#e6eef6;
+    }
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial}
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#050505 0%, #0b0b0f 100%);
+      color:var(--text);
+      scroll-behavior:smooth;
+    }
+    .wrap{max-width:1100px;margin:28px auto;padding:20px}
+    header{display:flex;align-items:center;gap:16px}
+    h1{margin:0;font-size:22px}
+    p.lead{margin:4px 0 18px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:320px 1fr;gap:16px}
+    .card{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.6)}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input[type=number], input[type=range], select{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit}
+    .row{display:flex;gap:10px}
+    .row>div{flex:1}
+    button{background:var(--accent);border:none;color:#fff;padding:10px 12px;border-radius:10px;cursor:pointer}
+    button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06)}
+    small{color:var(--muted)}
+    canvas{background:transparent}
+    .stats{display:flex;gap:12px;margin-top:12px}
+    .stat{background:rgba(255,255,255,0.02);padding:10px;border-radius:10px;min-width:120px;text-align:center}
+    .stat b{display:block;font-size:18px}
+    footer{margin-top:16px;color:var(--muted);font-size:13px;text-align:center}
+    section{padding:50px 20px 80px;border-top:1px solid rgba(255,255,255,0.05)}
+    .scroll-down{text-align:center;margin-top:20px;}
+    .scroll-down a{color:var(--accent);text-decoration:none;font-weight:600}
+    @media (max-width:880px){.grid{grid-template-columns:1fr}header{flex-direction:column;align-items:flex-start}}
+
+    /* Maintenance Tracker styles */
+    .tracker{
+      background:var(--card);
+      padding:20px;
+      border-radius:14px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.6);
+      width:100%;
+      max-width:600px;
+      margin:0 auto;
+    }
+    .add-task{display:flex;gap:10px;margin-bottom:20px}
+    input[type=text], input[type=date]{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 10px;color:var(--text);font-size:14px;flex:1}
+    input[type=text]::placeholder{color:var(--muted)}
+    .task-list{list-style:none;padding:0;margin:0}
+    .task{background:rgba(255,255,255,0.03);padding:12px 16px;border-radius:10px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .task.completed span{text-decoration:line-through;opacity:0.6}
+    .task span{flex-grow:1;font-size:15px}
+    .task small{color:var(--muted);font-size:12px;margin-left:10px}
+    .task button{background:transparent;border:1px solid rgba(255,255,255,0.1);padding:6px 10px;border-radius:6px;color:var(--muted)}
+    .task button:hover{color:#fff;border-color:#fff}
+  </style>
+</head>
+<body>
+  <!-- SECTION 1: Torque & Power Calculator -->
+  <section id="calc">
+    <div class="wrap">
+      <header>
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="22" height="22" rx="6" fill="#101016"/><path d="M6 18L9 8l4 6 5-8" stroke="#7c5cff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div>
+          <h1>Car Torque & Power Calculator</h1>
+          <p class="lead">Type engine specs — see torque & power curves (kW & HP) plotted across RPM.</p>
+        </div>
+      </header>
+
+      <div class="grid">
+        <div class="card">
+          <label>Peak torque (Nm)</label>
+          <input id="peakTorque" type="number" value="320" min="1" step="1">
+          <label style="margin-top:12px">Peak torque RPM</label>
+          <input id="peakTorqueRPM" type="number" value="3500" min="100" step="10">
+          <label style="margin-top:12px">Torque spread (RPM)</label>
+          <input id="spread" type="range" min="200" max="3000" value="700">
+          <div class="row" style="margin-top:8px">
+            <div><small>Max RPM</small><input id="maxRPM" type="number" value="7000" min="1000" step="100"></div>
+            <div><small>Step (RPM)</small><input id="stepRPM" type="number" value="100" min="10" step="10"></div>
+          </div>
+          <label style="margin-top:12px">Show units</label>
+          <select id="units">
+            <option value="si">SI — Torque: Nm, Power: kW</option>
+            <option value="imperial">Imperial — Torque: lb-ft, Power: HP</option>
+          </select>
+          <div style="display:flex;gap:8px;margin-top:14px">
+            <button id="plotBtn">Plot curves</button>
+            <button id="exportBtn" class="secondary">Export CSV</button>
+          </div>
+          <div class="stats">
+            <div class="stat"><small>Peak Power</small><b id="peakPowerVal">—</b><small id="peakPowerUnit">kW</small></div>
+            <div class="stat"><small>Torque at 1000 RPM</small><b id="t1000">—</b><small>Nm</small></div>
+            <div class="stat"><small>RPM of Max Power</small><b id="rpmMaxP">—</b><small>RPM</small></div>
+          </div>
+          <footer>Formula: <code>Power (kW) = Torque × RPM × 2π / 60 / 1000</code><br><code>Torque = Force × distance </code></footer>
+        </div>
+        <div class="card"><canvas id="chart" height="320"></canvas></div>
+      </div>
+
+      <div class="scroll-down">
+        <a href="#tracker">↓ Scroll down to Maintenance Tracker</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 2: Car Maintenance Tracker -->
+  <section id="tracker">
+    <h1 style="text-align:center;color:var(--accent)">Car Maintenance Tracker</h1>
+    <p style="text-align:center;color:var(--muted)">Keep track of your oil changes, tire rotations, and service dates with ease 🚗</p>
+
+    <div class="tracker">
+      <div class="add-task">
+        <input id="taskName" type="text" placeholder="Enter maintenance task (e.g., Oil Change)">
+        <input id="taskDate" type="date">
+        <button id="addBtn">Add</button>
+      </div>
+      <ul id="taskList" class="task-list"></ul>
+    </div>
+    <footer> &copy; <span id="year">All rights reserved WarpXgarage</span></footer>
+  </section>
+
+  <!-- JS -->
+  <script>
+    // === TORQUE & POWER CALCULATOR ===
+    const Nm_to_lbft = 0.737562149277; 
+    const kW_to_hp = 1.34102209;
+    function torqueAtRPM(rpm, peakTorque, peakRPM, spread){
+      const sd = Math.max(50, spread);
+      const exponent = -Math.pow(rpm - peakRPM, 2) / (2 * Math.pow(sd,2));
+      const baseline = 0.15 * peakTorque;
+      return baseline + (peakTorque - baseline) * Math.exp(exponent);
+    }
+    function powerKW(torqueNm, rpm){return torqueNm * rpm * (2 * Math.PI) / 60 / 1000;}
+
+    const ctx = document.getElementById('chart').getContext('2d');
+    let chart = new Chart(ctx, {
+      type:'line',
+      data:{labels:[],datasets:[
+        {label:'Torque (Nm)',data:[],borderWidth:2,tension:0.3,yAxisID:'y'},
+        {label:'Power (kW)',data:[],borderWidth:2,tension:0.3,yAxisID:'y1'}
+      ]},
+      options:{
+        maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{legend:{labels:{color:'#dfe8f8'}}},
+        scales:{
+          x:{ticks:{color:'#cfd9ee'}},
+          y:{position:'left',title:{display:true,text:'Torque (Nm)',color:'#cfd9ee'},ticks:{color:'#cfd9ee'}},
+          y1:{position:'right',title:{display:true,text:'Power (kW)',color:'#cfd9ee'},grid:{display:false},ticks:{color:'#cfd9ee'}}
+        }
+      }
+    });
+
+    function buildAndPlot(){
+      const peakTorque=parseFloat(peakTorqueEl.value)||0;
+      const peakRPM=parseFloat(peakRPMEl.value)||0;
+      const spread=parseFloat(spreadEl.value)||700;
+      const maxRPM=parseFloat(maxRPMEl.value)||7000;
+      const step=parseFloat(stepRPMEl.value)||100;
+      const units=unitsEl.value;
+
+      const labels=[],torqueData=[],powerData=[];
+      for(let rpm=0;rpm<=maxRPM;rpm+=step){
+        labels.push(rpm);
+        const t=torqueAtRPM(rpm,peakTorque,peakRPM,spread);
+        torqueData.push(+t.toFixed(2));
+        const p=powerKW(t,rpm);
+        powerData.push(+p.toFixed(3));
+      }
+      chart.data.labels=labels;
+      chart.data.datasets[0].data=torqueData;
+      chart.data.datasets[1].data=powerData;
+
+      if(units==='imperial'){
+        chart.data.datasets[0].data=torqueData.map(v=>(v*Nm_to_lbft).toFixed(2));
+        chart.data.datasets[1].data=powerData.map(v=>(v*kW_to_hp).toFixed(2));
+        chart.options.scales.y.title.text='Torque (lb-ft)';
+        chart.options.scales.y1.title.text='Power (HP)';
+      }else{
+        chart.options.scales.y.title.text='Torque (Nm)';
+        chart.options.scales.y1.title.text='Power (kW)';
+      }
+      chart.update();
+    }
+
+    const peakTorqueEl=document.getElementById('peakTorque');
+    const peakRPMEl=document.getElementById('peakTorqueRPM');
+    const spreadEl=document.getElementById('spread');
+    const maxRPMEl=document.getElementById('maxRPM');
+    const stepRPMEl=document.getElementById('stepRPM');
+    const unitsEl=document.getElementById('units');
+
+    document.getElementById('plotBtn').addEventListener('click',buildAndPlot);
+    document.getElementById('exportBtn').addEventListener('click',()=>{
+      const labels=chart.data.labels,t=chart.data.datasets[0].data,p=chart.data.datasets[1].data;
+      let csv='RPM,'+chart.data.datasets[0].label+','+chart.data.datasets[1].label+'\n';
+      for(let i=0;i<labels.length;i++)csv+=`${labels[i]},${t[i]},${p[i]}\n`;
+      const blob=new Blob([csv],{type:'text/csv'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;a.download='torque_power_curve.csv';a.click();
+      URL.revokeObjectURL(url);
+    });
+    buildAndPlot();
+
+    // === MAINTENANCE TRACKER ===
+    const taskList=document.getElementById('taskList');
+    const taskName=document.getElementById('taskName');
+    const taskDate=document.getElementById('taskDate');
+    const addBtn=document.getElementById('addBtn');
+    let tasks=JSON.parse(localStorage.getItem('carTasks'))||[];
+
+    function saveTasks(){localStorage.setItem('carTasks',JSON.stringify(tasks));}
+    function renderTasks(){
+      taskList.innerHTML='';
+      tasks.forEach((task,index)=>{
+        const li=document.createElement('li');
+        li.className='task'+(task.completed?' completed':'');
+        li.innerHTML=`
+          <span>${task.name} <small>${task.date? '('+task.date+')':''}</small></span>
+          <div>
+            <button onclick="toggleComplete(${index})">${task.completed?'Undo':'Done'}</button>
+            <button onclick="deleteTask(${index})">🗑️</button>
+          </div>`;
+        taskList.appendChild(li);
+      });
+    }
+    function addTask(){
+      const name=taskName.value.trim(),date=taskDate.value;
+      if(!name)return alert('Enter a maintenance task!');
+      tasks.push({name,date,completed:false});
+      taskName.value='';taskDate.value='';
+      saveTasks();renderTasks();
+    }
+    window.toggleComplete=index=>{tasks[index].completed=!tasks[index].completed;saveTasks();renderTasks();}
+    window.deleteTask=index=>{tasks.splice(index,1);saveTasks();renderTasks();}
+    addBtn.addEventListener('click',addTask);
+    renderTasks();
+  </script>
+</body>
+</html>
